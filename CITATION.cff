@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+title: muton
+message: If you use this software, please cite it as below.
+type: software
+authors:
+  - name: Muton contributors
+abstract: >-
+  Shared hive memory for coding agents. Agents retrieve durable Cards at
+  session start and silently extract new facts at session end.
+license: MIT
+repository-code: https://github.com/mbajaj/muton
+keywords:
+  - agents
+  - memory
+  - mcp
+  - knowledge
+version: 0.1.0
+date-released: "2026-09-14"

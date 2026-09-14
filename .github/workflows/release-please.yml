@@ -1,0 +1,51 @@
+name: release-please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish-tag:
+        description: "Optional tag to publish if release already created"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release-type: node
+
+      - uses: actions/checkout@v5
+        if: ${{ steps.release.outputs.release_created || inputs.publish-tag }}
+
+      - uses: actions/setup-node@v5
+        if: ${{ steps.release.outputs.release_created || inputs.publish-tag }}
+        with:
+          node-version: "24"
+
+      - uses: oven-sh/setup-bun@v2
+        if: ${{ steps.release.outputs.release_created || inputs.publish-tag }}
+
+      - name: Upgrade npm for trusted publishing
+        if: ${{ steps.release.outputs.release_created || inputs.publish-tag }}
+        run: npm install -g npm@^11.5.1
+
+      - name: Install and build
+        if: ${{ steps.release.outputs.release_created || inputs.publish-tag }}
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      - name: Publish to npm
+        if: ${{ steps.release.outputs.release_created || inputs.publish-tag }}
+        run: npm publish --access public

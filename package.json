@@ -1,0 +1,47 @@
+{
+  "name": "muton",
+  "version": "0.1.0",
+  "description": "Shared hive memory for coding agents — durable Cards with silent session reflection",
+  "type": "module",
+  "bin": {
+    "muton": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "prompts",
+    "skills"
+  ],
+  "scripts": {
+    "build": "bun build ./src/cli/index.ts --target node --outfile ./dist/cli.js && node -e \"const fs=require('fs'); const p='dist/cli.js'; const b=fs.readFileSync(p,'utf8'); if(!b.startsWith('#!')) fs.writeFileSync(p,'#!/usr/bin/env node\\n'+b); fs.chmodSync(p,0o755);\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "bun test",
+    "prepublishOnly": "bun run build"
+  },
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "keywords": [
+    "agents",
+    "memory",
+    "mcp",
+    "hooks",
+    "knowledge"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.13",
+    "@types/bun": "latest",
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.0"
+  }
+}
