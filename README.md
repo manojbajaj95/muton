@@ -1,5 +1,7 @@
 # muton
 
+A muton is the smallest unit of DNA or a chromosome that can change to cause a mutation.
+
 Shared hive memory for coding agents. Agents store durable facts as **Cards**, retrieve relevant Cards at session start, and silently extract new facts at session end — a hive mind across Cursor, Claude Code, Codex, and Pi.
 
 Inspired by [Mozilla cq](https://github.com/mozilla-ai/cq), without topics, notebooks, or human approval gates. Research preview: no merge, delete, or versioning admin.
