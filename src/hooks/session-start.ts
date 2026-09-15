@@ -21,22 +21,33 @@ function saveState(home: string, state: InjectedState): void {
   writeFileSync(sessionStatePath(home), JSON.stringify(state), "utf8");
 }
 
+/** Last path segment of a git remote, without .git. */
+export function repoNameFromRemote(remote: string): string {
+  return (
+    remote
+      .trim()
+      .replace(/\.git$/i, "")
+      .split(/[/:]/)
+      .filter(Boolean)
+      .at(-1) ?? ""
+  );
+}
+
 export function buildRepoQuery(cwd?: string): string {
-  const parts: string[] = [];
-  if (cwd) parts.push(basename(cwd));
-  if (cwd) {
-    try {
-      const remote = execSync("git remote get-url origin", {
-        cwd,
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      }).trim();
-      parts.push(remote);
-    } catch {
-      // no git
-    }
+  if (!cwd) return "";
+  const names = new Set<string>([basename(cwd)]);
+  try {
+    const remote = execSync("git remote get-url origin", {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    const repo = repoNameFromRemote(remote);
+    if (repo) names.add(repo);
+  } catch {
+    // no git
   }
-  return parts.join(" ") || "project";
+  return [...names].join(" ");
 }
 
 export type HookOutput = {

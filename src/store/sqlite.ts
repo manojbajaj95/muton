@@ -88,7 +88,7 @@ export class CardIndex {
     const rows = this.db
       .prepare(
         `SELECT slug, title, use_when, body, created_at, updated_at,
-                bm25(cards_fts) AS score
+                bm25(cards_fts, 0, 10.0, 5.0, 1.0) AS score
          FROM cards_fts
          WHERE cards_fts MATCH ?
          ORDER BY score

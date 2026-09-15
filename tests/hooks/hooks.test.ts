@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { normalizeHookInput, resolveReflectArgs, runHook } from "../../src/hooks/index.ts";
+import { repoNameFromRemote } from "../../src/hooks/session-start.ts";
 import { CardStore } from "../../src/store/index.ts";
 
 describe("hooks", () => {
@@ -61,5 +62,10 @@ describe("hooks", () => {
   test("session-end omits unknown session id", () => {
     const args = resolveReflectArgs("/tmp/t.txt", undefined, undefined, "unknown");
     expect(args).not.toContain("--session-id");
+  });
+
+  test("repoNameFromRemote uses the last path segment", () => {
+    expect(repoNameFromRemote("https://github.com/acme/muton.git")).toBe("muton");
+    expect(repoNameFromRemote("git@github.com:acme/muton.git")).toBe("muton");
   });
 });
