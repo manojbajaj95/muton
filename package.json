@@ -1,6 +1,6 @@
 {
   "name": "muton",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shared hive memory for coding agents — durable Cards with silent session reflection",
   "type": "module",
   "bin": {
