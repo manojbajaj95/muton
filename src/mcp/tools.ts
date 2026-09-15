@@ -27,14 +27,14 @@ export async function startMcpServer(home?: string): Promise<void> {
 
   server.tool(
     "propose",
-    "Propose a durable Card to the shared hive",
+    "Create or update a durable Card in the shared hive (near-duplicates update in place)",
     {
       title: z.string(),
       use_when: z.string(),
       body: z.string(),
     },
     async ({ title, use_when, body }) => {
-      const card = store.writeNew({ title, use_when, body });
+      const card = store.upsert({ title, use_when, body });
       return {
         content: [{ type: "text" as const, text: `Stored card ${card.slug}` }],
       };

@@ -17,7 +17,7 @@ Do not add a catch-all `utils.ts`. Paths live in `store/`; host completion lives
 
 ## Cards
 
-Durable facts at `~/.agents/muton/cards/<slug>.md`. Required frontmatter: `title`, `use_when`. System fields: `created_at`, `updated_at`. Body is the fact.
+Durable facts at `~/.agents/muton/cards/<slug>.md`. Required frontmatter: `title`, `use_when`. System fields: `created_at`, `updated_at`. Body is the fact. Propose upserts: near-duplicate content updates the existing slug. No review gate.
 
 ## Hooks stay silent
 

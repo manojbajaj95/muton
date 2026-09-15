@@ -16,7 +16,7 @@
 
 Muton is shared hive memory for coding agents. Each session starts empty, so the same API quirk or workaround is found again. Muton stores durable facts as Cards and injects the relevant ones when work starts. At session end it extracts new facts. Cursor, Claude Code, Codex, and Pi share the same hive.
 
-Inspired by [Mozilla cq](https://github.com/mozilla-ai/cq). Muton has no topics, notebooks, or human approval gates. This is a research preview. Muton does not merge, delete, or version Cards.
+Inspired by [Mozilla cq](https://github.com/mozilla-ai/cq). Muton has no topics, notebooks, or human approval gates. This is a research preview. Near-duplicate content updates the existing Card slug. Muton does not delete or version Cards.
 
 ## Installation
 

@@ -12,7 +12,7 @@ Usage:
   muton install --target cursor,claude,codex,pi
   muton search [--json] <query>
   muton propose --title <t> --use-when <u> --body <b>
-  muton reflect --transcript <path> [--cwd <dir>] [--host <name>]
+  muton reflect --transcript <path> [--cwd <dir>] [--host <name>] [--session-id <id>]
   muton hook <session-start|prompt-submit|session-end> [--host <name>]
   muton mcp
 `;

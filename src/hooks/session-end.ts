@@ -11,7 +11,12 @@ function resolveMutonBin(): string {
   return "muton";
 }
 
-function resolveReflectArgs(transcriptCopy: string, cwd?: string, host?: string): string[] {
+export function resolveReflectArgs(
+  transcriptCopy: string,
+  cwd?: string,
+  host?: string,
+  sessionId?: string,
+): string[] {
   const entry = process.argv[1];
   const args =
     entry && existsSync(entry)
@@ -19,6 +24,7 @@ function resolveReflectArgs(transcriptCopy: string, cwd?: string, host?: string)
       : ["reflect", "--transcript", transcriptCopy];
   if (cwd) args.push("--cwd", cwd);
   if (host) args.push("--host", host);
+  if (sessionId && sessionId !== "unknown") args.push("--session-id", sessionId);
   return args;
 }
 
@@ -39,7 +45,7 @@ export function handleSessionEnd(
     copyFileSync(src, dest);
 
     const bin = resolveMutonBin();
-    const args = resolveReflectArgs(dest, event.cwd, event.host);
+    const args = resolveReflectArgs(dest, event.cwd, event.host, event.sessionId);
     const child = spawn(bin, args, {
       detached: true,
       stdio: "ignore",

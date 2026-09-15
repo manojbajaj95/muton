@@ -19,7 +19,7 @@ Or call the MCP tool `search`.
 
 ## When to propose
 
-When you learn a durable, reusable fact (undocumented behavior, workaround, encoding):
+When you learn a durable, reusable fact (undocumented behavior, workaround, encoding). Search first. Propose the fact; the store updates a near-duplicate Card in place:
 
 ```bash
 muton propose --title "..." --use-when "..." --body "..."

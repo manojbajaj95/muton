@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { normalizeHookInput, runHook } from "../../src/hooks/index.ts";
+import { normalizeHookInput, resolveReflectArgs, runHook } from "../../src/hooks/index.ts";
 import { CardStore } from "../../src/store/index.ts";
 
 describe("hooks", () => {
@@ -48,5 +48,18 @@ describe("hooks", () => {
       { home },
     );
     expect(out.suppressOutput).toBe(true);
+  });
+
+  test("session-end reflect args include session id", () => {
+    const args = resolveReflectArgs("/tmp/t.txt", "/proj", "claude", "sess-9");
+    expect(args).toContain("--session-id");
+    expect(args).toContain("sess-9");
+    expect(args).toContain("--host");
+    expect(args).toContain("claude");
+  });
+
+  test("session-end omits unknown session id", () => {
+    const args = resolveReflectArgs("/tmp/t.txt", undefined, undefined, "unknown");
+    expect(args).not.toContain("--session-id");
   });
 });

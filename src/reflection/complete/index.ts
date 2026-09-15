@@ -14,5 +14,10 @@ export function createCompleter(): Completer {
   };
 }
 
-export { completeViaHostCli } from "./host-cli.ts";
+export {
+  buildHostCommand,
+  completeViaHostCli,
+  hostSupportsResume,
+  usableSessionId,
+} from "./host-cli.ts";
 export { completeViaHttp } from "./http.ts";

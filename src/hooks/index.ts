@@ -25,4 +25,5 @@ export function runHook(
 }
 
 export { normalizeHookInput } from "./normalize.ts";
+export { resolveReflectArgs } from "./session-end.ts";
 export type { HookOutput } from "./session-start.ts";

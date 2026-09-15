@@ -16,7 +16,7 @@ export function cmdPropose(args: string[]): void {
   }
   const store = new CardStore();
   try {
-    const card = store.writeNew({ title, use_when: useWhen, body });
+    const card = store.upsert({ title, use_when: useWhen, body });
     console.log(`Wrote ${card.slug}`);
   } finally {
     store.close();
