@@ -1,12 +1,21 @@
-# muton
+```
+  __  __ _    _ _______ ____  _   _ 
+ |  \/  | |  | |__   __/ __ \| \ | |
+ | \  / | |  | |  | | | |  | |  \| |
+ | |\/| | |  | |  | | | |  | | . ` |
+ | |  | | |__| |  | | | |__| | |\  |
+ |_|  |_|\____/   |_|  \____/|_| \_|
+```
 
-A muton is the smallest unit of DNA or a chromosome that can change to cause a mutation.
+> A muton is the smallest unit of DNA or a chromosome that can change to cause a mutation.
 
-Shared hive memory for coding agents. Agents store durable facts as **Cards**, retrieve relevant Cards at session start, and silently extract new facts at session end — a hive mind across Cursor, Claude Code, Codex, and Pi.
+## Why Muton
 
-Inspired by [Mozilla cq](https://github.com/mozilla-ai/cq), without topics, notebooks, or human approval gates. Research preview: no merge, delete, or versioning admin.
+Muton is shared hive memory for coding agents. Each session starts empty, so the same API quirk or workaround is found again. Muton stores durable facts as Cards and injects the relevant ones when work starts. At session end it extracts new facts. Cursor, Claude Code, Codex, and Pi share the same hive.
 
-## Install
+Inspired by [Mozilla cq](https://github.com/mozilla-ai/cq). Muton has no topics, notebooks, or human approval gates. This is a research preview. Muton does not merge, delete, or version Cards.
+
+## Installation
 
 ```bash
 bun add -g muton
@@ -14,47 +23,24 @@ bun add -g muton
 npm install -g muton
 ```
 
-Wire hooks for your harness(es):
+Install hooks for your harness:
 
 ```bash
 muton install --target cursor,claude,codex,pi
 ```
 
-Cards live under `~/.agents/muton/cards/`. Search uses SQLite FTS5 (BM25 + light rerank).
+Pass only the hosts you use. Cards are stored in `~/.agents/muton/cards/`.
 
 ## How it works
 
-1. **Session start / prompt submit** — Muton searches Cards and injects the top hits as hidden context.
-2. **Session end** — Muton detaches a silent reflection job. The host CLI (or `MUTON_MODEL` + `MUTON_API_KEY`) proposes new Cards. Users do not see proposals.
+1. At session start and on each prompt, Muton searches Cards and injects matches as hidden context.
+2. At session end, Muton starts a reflection job in the background. The host CLI proposes new Cards. You do not see the proposals.
 
-If hooks are unavailable, use MCP (`muton mcp`) or the skill + CLI (`muton search`, `muton propose`).
-
-## Override the reflection prompt
-
-Resolution order (first wins):
-
-1. `./REFLECTION.md` in the project
-2. `~/.agents/muton/REFLECTION.md`
-3. Bundled default in the package
-
-## Optional model override
-
-By default reflection uses the logged-in host CLI (`claude`, `agent`, `codex`, or `pi`). To force HTTP:
-
-```bash
-export MUTON_MODEL=claude-haiku-4-5-20251001
-export MUTON_API_KEY=sk-...
-```
+If hooks are not available, use MCP (`muton mcp`) or the skill and CLI (`muton search`, `muton propose`).
 
 ## Develop
 
-```bash
-bun install
-bun test
-bun run typecheck
-bun run lint
-bun run build
-```
+Read the [CONTRIBUTING](CONTRIBUTING.md) guidelines before you change the code.
 
 ## License
 
