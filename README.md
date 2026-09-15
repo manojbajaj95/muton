@@ -7,6 +7,9 @@
  |_|  |_|\____/   |_|  \____/|_| \_|
 ```
 
+[![npm](https://img.shields.io/npm/v/mutoncli)](https://www.npmjs.com/package/mutoncli)
+![available harness](https://img.shields.io/badge/available_harness-codex%7Cclaude%7Ccursor%7Cpi-informational)
+
 > A muton is the smallest unit of DNA or a chromosome that can change to cause a mutation.
 
 ## Why Muton
