@@ -18,10 +18,12 @@ Inspired by [Mozilla cq](https://github.com/mozilla-ai/cq). Muton has no topics,
 ## Installation
 
 ```bash
-bun add -g muton
+bun add -g mutoncli
 # or
-npm install -g muton
+npm install -g mutoncli
 ```
+
+The command is still `muton`.
 
 Install hooks for your harness:
 
