@@ -15,6 +15,10 @@ Install pre-commit hooks after cloning:
 pre-commit install
 ```
 
+## Pull requests
+
+Open a pull request against `main`. Direct pushes are blocked except for maintainers. CI must pass, including a CLI build check.
+
 ## Commits
 
 Use [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `chore:`, and so on.

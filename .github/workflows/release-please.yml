@@ -47,6 +47,12 @@ jobs:
           bun install --frozen-lockfile
           bun run build
 
+      - name: Check CLI artifact
+        if: ${{ steps.release.outputs.release_created || inputs.publish-tag }}
+        run: |
+          test -x dist/cli.js
+          node dist/cli.js --help | grep -q "muton install"
+
       - name: Publish to npm
         if: ${{ steps.release.outputs.release_created || inputs.publish-tag }}
         run: npm publish --access public

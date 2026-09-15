@@ -21,3 +21,8 @@ jobs:
       - run: bun run lint
       - run: bun run typecheck
       - run: bun test
+      - run: bun run build
+      - name: Check CLI artifact
+        run: |
+          test -x dist/cli.js
+          node dist/cli.js --help | grep -q "muton install"
