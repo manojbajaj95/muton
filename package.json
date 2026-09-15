@@ -4,7 +4,7 @@
   "description": "Shared hive memory for coding agents — durable Cards with silent session reflection",
   "type": "module",
   "bin": {
-    "muton": "./dist/cli.js"
+    "muton": "dist/cli.js"
   },
   "files": [
     "dist",
