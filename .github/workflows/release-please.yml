@@ -23,7 +23,8 @@ jobs:
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          release-type: node
+          config-file: .github/release-please-config.json
+          manifest-file: .github/release-please-manifest.json
 
       - uses: actions/checkout@v5
         if: ${{ steps.release.outputs.release_created || inputs.publish-tag }}
