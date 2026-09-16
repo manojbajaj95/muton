@@ -7,7 +7,7 @@
  |_|  |_|\____/   |_|  \____/|_| \_|
 ```
 
-[![npm](https://img.shields.io/npm/v/mutoncli)](https://www.npmjs.com/package/mutoncli)
+![npm](https://img.shields.io/npm/v/mutoncli)
 ![available harness](https://img.shields.io/badge/available_harness-codex%7Cclaude%7Ccursor%7Cpi-informational)
 
 > A muton is the smallest unit of DNA or a chromosome that can change to cause a mutation.
@@ -16,7 +16,7 @@
 
 Muton is shared hive memory for coding agents. Each session starts empty, so the same API quirk or workaround is found again. Muton stores durable facts as Cards and injects the relevant ones when work starts. At session end it extracts new facts. Cursor, Claude Code, Codex, and Pi share the same hive.
 
-Inspired by [Mozilla cq](https://github.com/mozilla-ai/cq). Muton has no topics, notebooks, or human approval gates. This is a research preview. Near-duplicate content updates the existing Card slug. Muton does not delete or version Cards.
+Inspired by [Mozilla cq](https://github.com/mozilla-ai/cq). 
 
 ## Installation
 
