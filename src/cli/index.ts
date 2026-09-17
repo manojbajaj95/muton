@@ -12,7 +12,8 @@ Usage:
   muton install --target cursor,claude,codex,pi
   muton search [--json] <query>
   muton propose --title <t> --use-when <u> --body <b>
-  muton reflect --transcript <path> [--cwd <dir>] [--host <name>] [--session-id <id>]
+  muton reflect --transcript <path> [--cwd <dir>] [--session-id <id>] [--backend <name>] [--model <id>]
+  muton reflect wait --session-id <id> [--timeout-ms <ms>] [--transcript-hash <hash>]
   muton hook <session-start|prompt-submit|session-end> [--host <name>]
   muton mcp
 `;

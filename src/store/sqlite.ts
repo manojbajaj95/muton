@@ -36,7 +36,20 @@ export class CardIndex {
 
   constructor(path: string) {
     this.db = new DatabaseSync(path);
+    this.db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 1500;");
     this.db.exec(SCHEMA);
+  }
+
+  beginWrite(): void {
+    this.db.exec("BEGIN IMMEDIATE;");
+  }
+
+  commit(): void {
+    this.db.exec("COMMIT;");
+  }
+
+  rollback(): void {
+    this.db.exec("ROLLBACK;");
   }
 
   close(): void {
@@ -75,8 +88,15 @@ export class CardIndex {
   }
 
   rebuild(cards: Card[]): void {
-    this.clear();
-    for (const card of cards) this.upsert(card);
+    this.beginWrite();
+    try {
+      this.clear();
+      for (const card of cards) this.upsert(card);
+      this.commit();
+    } catch (error) {
+      this.rollback();
+      throw error;
+    }
   }
 
   /** BM25 search; lower bm25 is better in SQLite. */

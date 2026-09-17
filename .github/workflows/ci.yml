@@ -26,3 +26,5 @@ jobs:
         run: |
           test -x dist/cli.js
           node dist/cli.js --help | grep -q "muton install"
+      - name: Install packaged artifact in a Node-only container
+        run: bun run test:package

@@ -18,13 +18,25 @@ stop the next session from repeating the same failure.
 The agent interface is the **CLI**. Use `muton search` and `muton propose`. If
 `muton` is not on PATH, skip hive calls. Do not invent another store.
 
+When this skill is supplied to a persistent multi-step benchmark system, this
+is a **mandatory protocol**, not a suggestion: before doing any other work in
+every step, run `muton search --json`. Do this before reading files, inspecting
+the environment, or querying a database, even when the step looks
+straightforward. Use the task domain and the current question as the query.
+This makes the benchmark measure whether Cards help with repeated work rather
+than whether the model happens to recognize a step as unfamiliar.
+
 ## Search
 
-Search before unfamiliar API work, tricky config, or an error you have not
-solved yet. Name the system and the symptom:
+For ordinary work, search before unfamiliar API work, tricky config, or an
+error you have not solved yet. For persistent benchmark work, the first tool
+call in every step must be a search. Name the system, domain, and symptom or
+question:
 
 ```bash
 muton search "stripe webhook signature"
+# Example benchmark query; substitute the actual current question:
+muton search --json "Formula 1 SQLite schema and query patterns: <current question>"
 ```
 
 Add `--json` when you need card bodies (`context` in the output). Treat hits as
@@ -35,8 +47,11 @@ If search returns nothing, continue the task. Do not stall.
 ## Propose
 
 Propose when you learn a durable, reusable fact: undocumented behavior, a
-workaround, an encoding rule, a host or environment constraint. Search first so
-you do not stack a second card for the same fact.
+workaround, an encoding rule, a host or environment constraint, or a stable
+domain/query pattern discovered during a benchmark. In a persistent benchmark,
+consider proposing after each step when the new fact will help later steps;
+never propose the one-off answer itself. Search first so you do not stack a
+second card for the same fact.
 
 ```bash
 muton propose --title "Stripe webhook raw body" --use-when "Verifying Stripe webhook signatures" --body "Pass the raw request Buffer to stripe.webhooks.constructEvent. JSON.parse first invalidates the signature."

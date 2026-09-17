@@ -18,12 +18,14 @@ describe("card frontmatter", () => {
       use_when: "Handling Stripe HTTP responses",
       created_at: "2026-09-14T11:20:00.000Z",
       updated_at: "2026-09-14T11:20:00.000Z",
+      sources: [{ session_id: "s1", transcript_hash: "abc" }],
       body: "Stripe can return HTTP 200 with an error body.",
     });
     const card = parseCard(markdown, "stripe-rate-limit-returns-200");
     expect(card.title).toBe("Stripe rate limit returns 200");
     expect(card.use_when).toContain("Stripe");
     expect(card.body).toContain("HTTP 200");
+    expect(card.sources).toEqual([{ session_id: "s1", transcript_hash: "abc" }]);
   });
 
   test("rejects missing title", () => {

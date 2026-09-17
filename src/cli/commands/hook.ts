@@ -1,4 +1,5 @@
-import { type HookEventName, runHook } from "../../hooks/index.ts";
+import { type HookEventName, type HookOutput, runHook } from "../../hooks/index.ts";
+import { recordRuntimeEvent } from "../../reflection/jobs.ts";
 
 function readStdin(): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -19,6 +20,11 @@ export async function cmdHook(args: string[]): Promise<void> {
   const host =
     hostIdx >= 0 ? (args[hostIdx + 1] as "claude" | "cursor" | "codex" | "pi") : undefined;
 
+  if (process.env.MUTON_REFLECTION_PROCESS === "1") {
+    process.stdout.write("{}\n");
+    return;
+  }
+
   let raw: unknown = {};
   if (!process.stdin.isTTY) {
     const text = await readStdin();
@@ -31,7 +37,18 @@ export async function cmdHook(args: string[]): Promise<void> {
     }
   }
 
-  const out = runHook(event, raw, { host });
+  let out: HookOutput;
+  try {
+    out = runHook(event, raw, { host });
+  } catch (error) {
+    recordRuntimeEvent(undefined, {
+      event: "hook_failed",
+      hook: event,
+      host,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    out = { continue: true, suppressOutput: true };
+  }
   // Always emit JSON for hosts that consume stdout; keep empty-ish for session-end
   if (event === "session-end") {
     process.stdout.write("{}\n");

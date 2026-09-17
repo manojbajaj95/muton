@@ -1,23 +1,23 @@
 import { completeViaHostCli } from "./host-cli.ts";
 import { completeViaHttp } from "./http.ts";
-import type { CompleteRequest, Completer } from "./types.ts";
+import type { BackendSpec, Completer } from "./types.ts";
 
-export type { CompleteRequest, Completer } from "./types.ts";
+export type {
+  BackendSpec,
+  CompleteRequest,
+  Completer,
+  CompletionResult,
+  CompletionUsage,
+  HostName,
+} from "./types.ts";
 
-/** Prefer MUTON_MODEL+MUTON_API_KEY; else host CLI. */
-export function createCompleter(): Completer {
-  return async (req: CompleteRequest) => {
-    if (process.env.MUTON_MODEL && process.env.MUTON_API_KEY) {
-      return completeViaHttp(req);
-    }
-    return completeViaHostCli(req);
-  };
+/** Bind a resolved backend to the common completion interface. */
+export function createCompleter(backend: BackendSpec): Completer {
+  return backend.kind === "direct"
+    ? (req) => completeViaHttp(backend, req)
+    : (req) => completeViaHostCli(backend, req);
 }
 
-export {
-  buildHostCommand,
-  completeViaHostCli,
-  hostSupportsResume,
-  usableSessionId,
-} from "./host-cli.ts";
+export { buildHostCommand, completeViaHostCli } from "./host-cli.ts";
 export { completeViaHttp } from "./http.ts";
+export { parseBackendSpec, selectBackend } from "./select.ts";

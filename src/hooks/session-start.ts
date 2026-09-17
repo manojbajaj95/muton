@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
+import { recordRuntimeEvent } from "../reflection/jobs.ts";
 import { searchCards } from "../search/index.ts";
 import { CardStore, sessionStatePath } from "../store/index.ts";
 import type { CanonicalEvent } from "./normalize.ts";
@@ -41,6 +42,7 @@ export function buildRepoQuery(cwd?: string): string {
       cwd,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
+      timeout: 1_000,
     }).trim();
     const repo = repoNameFromRemote(remote);
     if (repo) names.add(repo);
@@ -65,14 +67,22 @@ export type HookOutput = {
 export function handleSessionStart(
   event: Extract<CanonicalEvent, { type: "session-start" }>,
   home?: string,
+  runtimeHome?: string,
 ): HookOutput {
-  const store = new CardStore(home);
+  const store = new CardStore(home, event.cwd);
   try {
     const query = buildRepoQuery(event.cwd);
     const { hits, context } = searchCards(store, query, { k: 5 });
     const state = loadState(store.home);
     state[event.sessionId] = hits.map((h) => h.slug);
     saveState(store.home, state);
+    recordRuntimeEvent(runtimeHome, {
+      event: "cards_retrieved",
+      hook: "session-start",
+      session_id: event.sessionId,
+      project: event.cwd,
+      card_ids: hits.map((hit) => hit.slug),
+    });
     if (!context) return { continue: true, suppressOutput: true };
     return contextOutput(context, "SessionStart");
   } finally {

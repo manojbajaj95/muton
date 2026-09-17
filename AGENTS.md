@@ -17,8 +17,8 @@ Do not add a catch-all `utils.ts`. Paths live in `store/`; host completion lives
 
 ## Cards
 
-Durable facts at `~/.agents/muton/cards/<slug>.md`. Required frontmatter: `title`, `use_when`. System fields: `created_at`, `updated_at`. Body is the fact. Propose upserts: near-duplicate content updates the existing slug. No review gate.
+Durable facts live at `<project>/.agents/muton/cards/<slug>.md`. Required frontmatter: `title`, `use_when`. System fields: `created_at`, `updated_at`, and optional `sources`. Body is the fact. Propose upserts: equivalent content is skipped and complementary content is merged without deleting supported details. No review gate.
 
 ## Hooks stay silent
 
-Session-end reflection must not print proposals to the user. Detach, log under `~/.agents/muton/logs/` only.
+Session-end reflection must not print proposals to the user. Snapshot before returning, detach model work, and log under `~/.agents/muton/runtime/logs/` only.

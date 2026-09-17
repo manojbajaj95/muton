@@ -5,6 +5,12 @@ export type CardFrontmatter = {
   use_when: string;
   created_at: string;
   updated_at: string;
+  sources?: CardSource[];
+};
+
+export type CardSource = {
+  session_id: string;
+  transcript_hash: string;
 };
 
 export type Card = CardFrontmatter & {
@@ -46,6 +52,7 @@ export function parseCard(markdown: string, slug: string): Card {
     use_when: requireString(raw, "use_when"),
     created_at: requireString(raw, "created_at"),
     updated_at: requireString(raw, "updated_at"),
+    sources: parseSources(raw.sources),
     body,
     slug,
   };
@@ -58,6 +65,20 @@ export function serializeCard(card: Omit<Card, "slug">): string {
     use_when: card.use_when,
     created_at: card.created_at,
     updated_at: card.updated_at,
+    ...(card.sources?.length ? { sources: card.sources } : {}),
   }).trimEnd();
   return `---\n${frontmatter}\n---\n\n${card.body.trim()}\n`;
+}
+
+function parseSources(value: unknown): CardSource[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const sources = value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const source = entry as Record<string, unknown>;
+    if (typeof source.session_id !== "string" || typeof source.transcript_hash !== "string") {
+      return [];
+    }
+    return [{ session_id: source.session_id, transcript_hash: source.transcript_hash }];
+  });
+  return sources.length ? sources : undefined;
 }

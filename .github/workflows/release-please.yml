@@ -55,6 +55,10 @@ jobs:
           test -x dist/cli.js
           node dist/cli.js --help | grep -q "muton install"
 
+      - name: Install packaged artifact in a Node-only container
+        if: ${{ steps.release.outputs.release_created || inputs.publish-tag }}
+        run: bun run test:package
+
       - name: Publish to npm
         if: ${{ steps.release.outputs.release_created || inputs.publish-tag }}
         run: npm publish --access public

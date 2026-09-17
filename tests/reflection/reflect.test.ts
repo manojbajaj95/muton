@@ -2,40 +2,43 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseProposals, RESUME_EXTRACT_PROMPT, reflect } from "../../src/reflection/index.ts";
+import {
+  parseProposals,
+  ReflectionOutputError,
+  reflectCanonical,
+} from "../../src/reflection/index.ts";
 import { DEFAULT_REFLECTION_PROMPT, loadReflectionPrompt } from "../../src/reflection/prompt.ts";
-import { writeProposedCards } from "../../src/reflection/writer.ts";
+import type { CanonicalTranscript } from "../../src/reflection/transcript/index.ts";
 import { CardStore } from "../../src/store/index.ts";
 
+const transcript: CanonicalTranscript = {
+  schema_version: 1,
+  host: "codex",
+  session_id: "sess-1",
+  records: [
+    { id: "r1", role: "user", text: "Investigate Stripe." },
+    { id: "r2", role: "tool", name: "curl", text: "HTTP 200 { error: rate_limited }" },
+  ],
+};
+
 describe("reflection prompt", () => {
-  test("appends project REFLECTION.md to the default prompt", () => {
+  test("uses project, project-store, then global runtime prompt precedence", () => {
     const root = mkdtempSync(join(tmpdir(), "muton-prompt-"));
-    const home = join(root, "home");
+    const home = join(root, "project-store");
+    const runtime = join(root, "runtime");
     const cwd = join(root, "cwd");
     mkdirSync(home, { recursive: true });
+    mkdirSync(runtime, { recursive: true });
     mkdirSync(cwd, { recursive: true });
+    writeFileSync(join(home, "REFLECTION.md"), "STORE PROMPT");
+    writeFileSync(join(runtime, "REFLECTION.md"), "GLOBAL PROMPT");
     writeFileSync(join(cwd, "REFLECTION.md"), "PROJECT PROMPT");
-    writeFileSync(join(home, "REFLECTION.md"), "HOME PROMPT");
     try {
-      expect(loadReflectionPrompt({ cwd, home })).toBe(
+      expect(loadReflectionPrompt({ cwd, home, runtimeHome: runtime })).toBe(
         `${DEFAULT_REFLECTION_PROMPT}\n\nPROJECT PROMPT`,
       );
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  test("appends home REFLECTION.md when the project has none", () => {
-    const root = mkdtempSync(join(tmpdir(), "muton-prompt-home-"));
-    const home = join(root, "home");
-    const cwd = join(root, "cwd");
-    mkdirSync(home, { recursive: true });
-    mkdirSync(cwd, { recursive: true });
-    writeFileSync(join(home, "REFLECTION.md"), "HOME PROMPT");
-    try {
-      expect(loadReflectionPrompt({ cwd, home })).toBe(
-        `${DEFAULT_REFLECTION_PROMPT}\n\nHOME PROMPT`,
-      );
+      rmSync(join(cwd, "REFLECTION.md"));
+      expect(loadReflectionPrompt({ cwd, home, runtimeHome: runtime })).toContain("STORE PROMPT");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -43,237 +46,96 @@ describe("reflection prompt", () => {
 });
 
 describe("parseProposals", () => {
-  test("parses JSON array", () => {
-    const items = parseProposals(`[{"title":"A","use_when":"B","body":"C"}]`);
-    expect(items).toEqual([{ title: "A", use_when: "B", body: "C" }]);
+  test("distinguishes valid empty output from malformed output", () => {
+    expect(parseProposals("[]", transcript)).toEqual([]);
+    expect(() => parseProposals("not json", transcript)).toThrow(ReflectionOutputError);
   });
 
-  test("parses fenced JSON", () => {
-    const items = parseProposals('```json\n[{"title":"A","use_when":"B","body":"C"}]\n```');
-    expect(items[0]?.title).toBe("A");
-  });
-
-  test("returns empty for unparsable text", () => {
-    expect(parseProposals("not json")).toEqual([]);
+  test("rejects invalid, oversized, and unsupported proposals", () => {
+    expect(() => parseProposals('[{"title":"A","use_when":"B","body":"C"}]', transcript)).toThrow(
+      /contract/,
+    );
+    const six = Array.from({ length: 6 }, (_, index) => ({
+      title: `A${index}`,
+      use_when: "B",
+      body: "C",
+      evidence: ["r2"],
+    }));
+    expect(() => parseProposals(JSON.stringify(six), transcript)).toThrow(/contract/);
+    try {
+      parseProposals(
+        JSON.stringify([{ title: "A", use_when: "B", body: "C", evidence: ["r1"] }]),
+        transcript,
+      );
+      throw new Error("expected invalid evidence");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ReflectionOutputError);
+      expect((error as ReflectionOutputError).reasons.join(" ")).toContain("assistant or tool");
+    }
   });
 });
 
-describe("reflect", () => {
-  test("writes cards via mocked completer", async () => {
+describe("reflectCanonical", () => {
+  test("writes a provenance-carrying Card from the sanitized transcript", async () => {
     const root = mkdtempSync(join(tmpdir(), "muton-reflect-"));
-    const transcript = join(root, "t.txt");
-    writeFileSync(transcript, "We learned that Stripe returns 200 with error body.");
+    const home = join(root, "project", ".agents", "muton");
     try {
-      const result = await reflect({
-        transcriptPath: transcript,
-        home: root,
-        completer: async (req) => {
-          expect(req.user).toBe("We learned that Stripe returns 200 with error body.");
-          expect(req.user).not.toContain("Existing card titles");
-          expect(req.system).toContain("The store merges near-duplicates");
-          return JSON.stringify([
-            {
-              title: "Stripe 200 error body",
-              use_when: "Stripe HTTP",
-              body: "Check JSON error on 200.",
-            },
-          ]);
+      const result = await reflectCanonical({
+        transcript,
+        transcriptHash: "abc123",
+        projectRoot: join(root, "project"),
+        cardHome: home,
+        runtimeHome: join(root, "runtime"),
+        completer: async (request) => {
+          expect(request.user).toContain('"id":"r2"');
+          expect(request.user).not.toContain("thinking");
+          expect(request.system).toContain(`Project root: ${join(root, "project")}`);
+          expect(request.cwd).not.toBe(join(root, "project"));
+          return {
+            text: JSON.stringify([
+              {
+                title: "Stripe 200 error body",
+                use_when: "handling Stripe HTTP responses",
+                body: "Inspect the JSON error field even when Stripe returns HTTP 200.",
+                evidence: ["r2"],
+              },
+            ]),
+            provider: "test",
+            model: "extractor-1",
+            usage: { inputTokens: 10, outputTokens: 5 },
+            costUsd: 0.01,
+          };
         },
       });
-      expect(result.written).toBe(1);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  test("returns zero writes on empty transcript without calling the model", async () => {
-    const root = mkdtempSync(join(tmpdir(), "muton-reflect-"));
-    const transcript = join(root, "t.txt");
-    writeFileSync(transcript, "   \n");
-    try {
-      const result = await reflect({
-        transcriptPath: transcript,
-        home: root,
-        completer: async () => {
-          throw new Error("completer should not run");
-        },
-      });
-      expect(result.written).toBe(0);
-      expect(result.skipped).toBe(0);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  test("updates an existing card instead of writing a second copy", async () => {
-    const root = mkdtempSync(join(tmpdir(), "muton-reflect-"));
-    const transcript = join(root, "t.txt");
-    writeFileSync(
-      transcript,
-      "Stripe still returns 200 with an error body; parse the error field.",
-    );
-    const store = new CardStore(root);
-    store.writeNew({
-      title: "Stripe rate limit returns 200",
-      use_when: "Stripe HTTP responses",
-      body: "Read JSON error even when status is 200.",
-    });
-    store.close();
-    try {
-      const result = await reflect({
-        transcriptPath: transcript,
-        home: root,
-        completer: async (req) => {
-          expect(req.user).toBe(
-            "Stripe still returns 200 with an error body; parse the error field.",
-          );
-          expect(req.user).not.toContain("Existing card titles");
-          return JSON.stringify([
-            {
-              title: "Stripe 200 error body",
-              use_when: "Handling Stripe HTTP",
-              body: "Read JSON error even when status is 200. Parse the error field.",
-            },
-          ]);
-        },
-      });
-      expect(result.written).toBe(1);
-      expect(result.skipped).toBe(0);
-      const after = new CardStore(root);
+      expect(result.created).toBe(1);
+      const store = new CardStore(home);
       try {
-        expect(after.cardCount()).toBe(1);
-        expect(after.read("stripe-rate-limit-returns-200")?.body).toContain("error field");
+        const card = store.listCards()[0];
+        expect(card?.sources).toEqual([{ session_id: "sess-1", transcript_hash: "abc123" }]);
       } finally {
-        after.close();
+        store.close();
       }
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  test("resume uses a short extract prompt and skips the transcript", async () => {
-    const root = mkdtempSync(join(tmpdir(), "muton-reflect-"));
-    const transcript = join(root, "t.txt");
-    writeFileSync(transcript, "We learned that Stripe returns 200 with error body.");
-    const calls: Array<{ user: string; sessionId?: string }> = [];
+  test("does not resume the source session and accepts a valid no-op", async () => {
+    const root = mkdtempSync(join(tmpdir(), "muton-reflect-empty-"));
     try {
-      const result = await reflect({
-        transcriptPath: transcript,
-        home: root,
-        sessionId: "sess-1",
-        completer: async (req) => {
-          calls.push({ user: req.user, sessionId: req.sessionId });
-          expect(req.user).toBe(RESUME_EXTRACT_PROMPT);
-          expect(req.user).not.toContain("Existing card titles");
-          expect(req.sessionId).toBe("sess-1");
-          return JSON.stringify([
-            {
-              title: "Stripe 200 error body",
-              use_when: "Stripe HTTP",
-              body: "Check JSON error on 200.",
-            },
-          ]);
-        },
-      });
-      expect(result.written).toBe(1);
-      expect(calls).toHaveLength(1);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  test("empty resume JSON array is success and does not fall back", async () => {
-    const root = mkdtempSync(join(tmpdir(), "muton-reflect-"));
-    const transcript = join(root, "t.txt");
-    writeFileSync(transcript, "nothing durable here");
-    let calls = 0;
-    try {
-      const result = await reflect({
-        transcriptPath: transcript,
-        home: root,
-        sessionId: "sess-1",
-        completer: async () => {
-          calls += 1;
-          return "[]";
+      const result = await reflectCanonical({
+        transcript,
+        projectRoot: root,
+        cardHome: join(root, ".agents", "muton"),
+        runtimeHome: join(root, "runtime"),
+        completer: async (request) => {
+          expect(Object.keys(request)).not.toContain("sessionId");
+          return { text: "[]" };
         },
       });
       expect(result.written).toBe(0);
-      expect(calls).toBe(1);
+      expect(result.skipped).toBe(0);
     } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  test("falls back to the transcript when resume output is not JSON", async () => {
-    const root = mkdtempSync(join(tmpdir(), "muton-reflect-"));
-    const transcript = join(root, "t.txt");
-    writeFileSync(transcript, "We learned that Stripe returns 200 with error body.");
-    const users: string[] = [];
-    try {
-      const result = await reflect({
-        transcriptPath: transcript,
-        home: root,
-        sessionId: "sess-1",
-        completer: async (req) => {
-          users.push(req.user);
-          if (req.sessionId) return "not json at all";
-          return JSON.stringify([
-            {
-              title: "Stripe 200 error body",
-              use_when: "Stripe HTTP",
-              body: "Check JSON error on 200.",
-            },
-          ]);
-        },
-      });
-      expect(result.written).toBe(1);
-      expect(users[0]).toBe(RESUME_EXTRACT_PROMPT);
-      expect(users[1]).toBe("We learned that Stripe returns 200 with error body.");
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  test("falls back to the transcript when resume throws", async () => {
-    const root = mkdtempSync(join(tmpdir(), "muton-reflect-"));
-    const transcript = join(root, "t.txt");
-    writeFileSync(transcript, "We learned that Stripe returns 200 with error body.");
-    try {
-      const result = await reflect({
-        transcriptPath: transcript,
-        home: root,
-        sessionId: "sess-1",
-        completer: async (req) => {
-          if (req.sessionId) throw new Error("session gone");
-          return JSON.stringify([
-            {
-              title: "Stripe 200 error body",
-              use_when: "Stripe HTTP",
-              body: "Check JSON error on 200.",
-            },
-          ]);
-        },
-      });
-      expect(result.written).toBe(1);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-});
-
-describe("writeProposedCards", () => {
-  test("skips invalid proposals", () => {
-    const root = mkdtempSync(join(tmpdir(), "muton-writer-"));
-    const store = new CardStore(root);
-    try {
-      const result = writeProposedCards(store, [
-        { title: "", use_when: "x", body: "y" },
-        { title: "Ok", use_when: "when", body: "fact" },
-      ]);
-      expect(result.skipped).toEqual(["(invalid)"]);
-      expect(result.written).toHaveLength(1);
-    } finally {
-      store.close();
       rmSync(root, { recursive: true, force: true });
     }
   });

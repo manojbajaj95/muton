@@ -1,38 +1,46 @@
-import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import {
+  closeSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
-import { type Card, parseCard, serializeCard, slugify } from "../cards/index.ts";
-import { cardsDir, indexPath, logsDir, mutonHome, scratchDir, tmpDir } from "./fs.ts";
+import { type Card, type CardSource, parseCard, serializeCard, slugify } from "../cards/index.ts";
+import { cardsDir, indexPath, mutonHome } from "./fs.ts";
 import { CardIndex, type FtsHit } from "./sqlite.ts";
 
-const MERGE_SEARCH_K = 5;
-const TITLE_OVERLAP = 0.8;
-const CONTENT_OVERLAP = 0.5;
+const MERGE_SEARCH_K = 20;
+const TITLE_OVERLAP = 0.55;
+const CONTENT_OVERLAP = 0.72;
 const FTS_QUERY_MAX = 500;
+const LOCK_TIMEOUT_MS = 5_000;
 
 export type ProposeInput = {
   title: string;
   use_when: string;
   body: string;
+  sources?: CardSource[];
 };
+
+export type UpsertResult = { card: Card; action: "created" | "equivalent" | "merged" };
 
 export class CardStore {
   readonly home: string;
   private index: CardIndex | null = null;
 
-  constructor(home = mutonHome()) {
-    this.home = home;
+  constructor(home?: string, cwd?: string) {
+    this.home = mutonHome(home, cwd);
     this.ensureDirs();
   }
 
   ensureDirs(): void {
-    for (const dir of [
-      cardsDir(this.home),
-      tmpDir(this.home),
-      scratchDir(this.home),
-      logsDir(this.home),
-    ]) {
-      mkdirSync(dir, { recursive: true });
-    }
+    mkdirSync(cardsDir(this.home), { recursive: true });
   }
 
   private getIndex(): CardIndex {
@@ -98,27 +106,39 @@ export class CardStore {
    * ponytail: FTS + token overlap; add embeddings only if the hive still grows.
    */
   upsert(input: ProposeInput, now = new Date()): Card {
-    const title = input.title.trim();
-    const use_when = input.use_when.trim();
-    const body = input.body.trim();
-    const match = this.findMergeMatch({ title, use_when, body });
-    if (match) return this.update(match.slug, { title, use_when, body }, now);
-    return this.writeNew({ title, use_when, body }, now);
+    return this.upsertDetailed(input, now).card;
+  }
+
+  upsertDetailed(input: ProposeInput, now = new Date()): UpsertResult {
+    return this.withWriteLock(() => {
+      const normalized = normalizeInput(input);
+      const match = this.findMergeMatch(normalized);
+      if (!match) return { card: this.writeNewUnlocked(normalized, now), action: "created" };
+
+      const merged = mergeCard(match, normalized, now);
+      if (!merged) return { card: match, action: "equivalent" };
+      return { card: this.persist(merged), action: "merged" };
+    });
   }
 
   update(slug: string, input: ProposeInput, now = new Date()): Card {
-    const existing = this.read(slug);
-    if (!existing) throw new Error(`Card not found: ${slug}`);
-    return this.persist({
-      ...existing,
-      title: input.title.trim(),
-      use_when: input.use_when.trim(),
-      body: input.body.trim(),
-      updated_at: now.toISOString(),
+    return this.withWriteLock(() => {
+      const existing = this.read(slug);
+      if (!existing) throw new Error(`Card not found: ${slug}`);
+      return this.persist({
+        ...existing,
+        ...normalizeInput(input),
+        sources: input.sources ? mergeSources([], input.sources) : existing.sources,
+        updated_at: now.toISOString(),
+      });
     });
   }
 
   writeNew(input: ProposeInput, now = new Date()): Card {
+    return this.withWriteLock(() => this.writeNewUnlocked(normalizeInput(input), now));
+  }
+
+  private writeNewUnlocked(input: ProposeInput, now: Date): Card {
     const iso = now.toISOString();
     const slug = this.allocateSlug(input.title);
     return this.persist({
@@ -128,10 +148,11 @@ export class CardStore {
       body: input.body.trim(),
       created_at: iso,
       updated_at: iso,
+      sources: input.sources,
     });
   }
 
-  private findMergeMatch(input: ProposeInput): { slug: string } | undefined {
+  private findMergeMatch(input: ProposeInput): Card | undefined {
     const query = [input.title, input.use_when, input.body]
       .join(" ")
       .trim()
@@ -141,31 +162,74 @@ export class CardStore {
     if (hits.length === 0) return undefined;
 
     const lower = input.title.toLowerCase();
-    const exact = hits.find((h) => h.title.toLowerCase() === lower);
-    if (exact) return exact;
+    const exact = hits.find((hit) => hit.title.toLowerCase() === lower);
+    if (exact) return this.read(exact.slug) ?? undefined;
 
     let best: FtsHit | undefined;
     let bestScore = 0;
-    for (const [i, hit] of hits.entries()) {
+    for (const hit of hits) {
       const titleScore = tokenOverlap(hit.title, input.title);
-      const contentScore = tokenOverlap(combinedText(hit), combinedText(input));
-      const merge = titleScore > TITLE_OVERLAP || (i === 0 && contentScore > CONTENT_OVERLAP);
+      const contentScore = tokenOverlap(hit.body, input.body);
+      const merge =
+        equivalentText(hit.body, input.body) ||
+        (titleScore >= TITLE_OVERLAP && contentScore >= CONTENT_OVERLAP);
       if (!merge) continue;
       if (!best || contentScore > bestScore) {
         best = hit;
         bestScore = contentScore;
       }
     }
-    return best;
+    return best ? (this.read(best.slug) ?? undefined) : undefined;
   }
 
   private persist(card: Card): Card {
     const path = join(cardsDir(this.home), `${card.slug}.md`);
-    const tmp = `${path}.tmp`;
-    writeFileSync(tmp, serializeCard(card), "utf8");
-    renameSync(tmp, path);
-    this.getIndex().upsert(card);
-    return card;
+    const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`;
+    writeFileSync(tmp, serializeCard(card), { encoding: "utf8", mode: 0o600 });
+    const index = this.getIndex();
+    index.beginWrite();
+    try {
+      index.upsert(card);
+      renameSync(tmp, path);
+      index.commit();
+      return card;
+    } catch (error) {
+      try {
+        index.rollback();
+      } catch {
+        // The transaction may already be closed.
+      }
+      rmSync(tmp, { force: true });
+      throw error;
+    }
+  }
+
+  private withWriteLock<T>(fn: () => T): T {
+    const lock = join(this.home, ".write.lock");
+    const started = Date.now();
+    let fd: number | undefined;
+    while (fd === undefined) {
+      try {
+        fd = openSync(lock, "wx", 0o600);
+        writeFileSync(fd, String(process.pid));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        try {
+          if (Date.now() - statSync(lock).mtimeMs > 300_000) rmSync(lock, { force: true });
+        } catch {
+          // Another writer may have just released the lock.
+        }
+        if (Date.now() - started >= LOCK_TIMEOUT_MS)
+          throw new Error("Timed out waiting for Card store write lock");
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+      }
+    }
+    try {
+      return fn();
+    } finally {
+      closeSync(fd);
+      rmSync(lock, { force: true });
+    }
   }
 
   searchRaw(query: string, limit = 20) {
@@ -177,12 +241,62 @@ export class CardStore {
   }
 
   rebuildIndex(): void {
-    this.getIndex().rebuild(this.listCards());
+    this.withWriteLock(() => this.getIndex().rebuild(this.listCards()));
   }
 }
 
-function combinedText(fields: { title: string; use_when: string; body: string }): string {
-  return `${fields.title} ${fields.use_when} ${fields.body}`;
+function normalizeInput(input: ProposeInput): ProposeInput {
+  return {
+    title: input.title.trim(),
+    use_when: input.use_when.trim(),
+    body: input.body.trim(),
+    sources: mergeSources([], input.sources ?? []),
+  };
+}
+
+function mergeCard(existing: Card, input: ProposeInput, now: Date): Card | undefined {
+  const body = mergeText(existing.body, input.body, "\n\n");
+  const useWhen = mergeText(existing.use_when, input.use_when, "; ");
+  const sources = mergeSources(existing.sources ?? [], input.sources ?? []);
+  const unchanged =
+    body === existing.body &&
+    useWhen === existing.use_when &&
+    sources.length === (existing.sources?.length ?? 0);
+  if (unchanged) return undefined;
+  return {
+    ...existing,
+    body,
+    use_when: useWhen,
+    sources: sources.length ? sources : undefined,
+    updated_at: now.toISOString(),
+  };
+}
+
+function mergeText(existing: string, incoming: string, separator: string): string {
+  if (equivalentText(existing, incoming) || normalized(existing).includes(normalized(incoming))) {
+    return existing;
+  }
+  if (normalized(incoming).includes(normalized(existing))) return incoming;
+  return `${existing}${separator}${incoming}`;
+}
+
+function equivalentText(a: string, b: string): boolean {
+  return normalized(a) === normalized(b) || tokenOverlap(a, b) >= 0.9;
+}
+
+function normalized(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function mergeSources(a: CardSource[], b: CardSource[]): CardSource[] {
+  const values = new Map<string, CardSource>();
+  for (const source of [...a, ...b]) {
+    values.set(`${source.session_id}\0${source.transcript_hash}`, source);
+  }
+  return [...values.values()];
 }
 
 function tokenOverlap(a: string, b: string): number {

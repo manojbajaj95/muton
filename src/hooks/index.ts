@@ -9,21 +9,27 @@ export type HookEventName = "session-start" | "prompt-submit" | "session-end";
 export function runHook(
   eventName: HookEventName,
   raw: unknown,
-  opts?: { home?: string; host?: "claude" | "cursor" | "codex" | "pi" },
+  opts?: {
+    home?: string;
+    runtimeHome?: string;
+    host?: "claude" | "cursor" | "codex" | "pi";
+  },
 ): HookOutput {
+  if (process.env.MUTON_REFLECTION_PROCESS === "1") {
+    return { continue: true, suppressOutput: true };
+  }
   const event = normalizeHookInput(eventName, raw, opts?.host);
   switch (event.type) {
     case "session-start":
-      return handleSessionStart(event, opts?.home);
+      return handleSessionStart(event, opts?.home, opts?.runtimeHome);
     case "prompt-submit":
-      return handlePromptSubmit(event, opts?.home);
+      return handlePromptSubmit(event, opts?.home, opts?.runtimeHome);
     case "session-end":
-      return handleSessionEnd(event, opts?.home);
+      return handleSessionEnd(event, opts?.home, opts?.runtimeHome);
     default:
       return { continue: true, suppressOutput: true };
   }
 }
 
 export { normalizeHookInput } from "./normalize.ts";
-export { resolveReflectArgs } from "./session-end.ts";
 export type { HookOutput } from "./session-start.ts";

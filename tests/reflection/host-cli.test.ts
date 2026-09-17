@@ -1,50 +1,39 @@
 import { describe, expect, test } from "bun:test";
-import {
-  buildHostCommand,
-  hostSupportsResume,
-  usableSessionId,
-} from "../../src/reflection/complete/host-cli.ts";
+import { buildHostCommand } from "../../src/reflection/complete/host-cli.ts";
 
-describe("host CLI resume argv", () => {
-  test("usableSessionId rejects unknown", () => {
-    expect(usableSessionId("unknown")).toBe(false);
-    expect(usableSessionId("")).toBe(false);
-    expect(usableSessionId("abc")).toBe(true);
+describe("isolated host CLI argv", () => {
+  test("Pi disables session state, extensions, context, and tools", () => {
+    const command = buildHostCommand("pi", "extract", "model-1");
+    expect(command.cmd).toBe("pi");
+    expect(command.args).toContain("--no-session");
+    expect(command.args).toContain("--no-extensions");
+    expect(command.args).toContain("--no-context-files");
+    expect(command.args).toContain("--no-tools");
+    expect(command.args).not.toContain("--resume");
   });
 
-  test("pi has no resume", () => {
-    expect(hostSupportsResume("pi")).toBe(false);
-    expect(() => buildHostCommand("pi", "prompt", "abc")).toThrow(/no session resume/);
-  });
-
-  test("claude resume keeps tools and hooks off", () => {
-    const { cmd, args } = buildHostCommand("claude", "extract", "sess-1");
-    expect(cmd).toBe("claude");
-    expect(args).toContain("--resume");
-    expect(args).toContain("sess-1");
+  test("Claude disables tools, hooks, and session persistence", () => {
+    const { args } = buildHostCommand("claude", "extract");
     expect(args).toContain("--tools");
+    expect(args).toContain("--no-session-persistence");
     expect(args.join(" ")).toContain("disableAllHooks");
-    expect(args.at(-1)).toBe("extract");
+    expect(args).not.toContain("--resume");
   });
 
-  test("cursor resume uses --resume chat id", () => {
-    const { cmd, args } = buildHostCommand("cursor", "extract", "chat-1");
+  test("Codex is ephemeral with hooks and project rules disabled", () => {
+    const { args } = buildHostCommand("codex", "extract");
+    expect(args).toContain("--ephemeral");
+    expect(args).toContain("hooks");
+    expect(args).toContain("--ignore-user-config");
+    expect(args).toContain("--ignore-rules");
+    expect(args).not.toContain("resume");
+  });
+
+  test("Cursor uses ask mode and its sandbox", () => {
+    const { cmd, args } = buildHostCommand("cursor", "extract");
     expect(cmd).toBe("agent");
-    expect(args).toEqual(["-p", "--output-format", "text", "--resume", "chat-1", "extract"]);
-  });
-
-  test("codex resume is not ephemeral", () => {
-    const resumed = buildHostCommand("codex", "extract", "thread-1");
-    expect(resumed.args).toEqual([
-      "exec",
-      "--sandbox",
-      "read-only",
-      "resume",
-      "thread-1",
-      "extract",
-    ]);
-    expect(resumed.args).not.toContain("--ephemeral");
-    const fresh = buildHostCommand("codex", "extract");
-    expect(fresh.args).toContain("--ephemeral");
+    expect(args).toContain("ask");
+    expect(args).toContain("enabled");
+    expect(args).not.toContain("--resume");
   });
 });

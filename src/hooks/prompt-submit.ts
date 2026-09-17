@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { recordRuntimeEvent } from "../reflection/jobs.ts";
 import { searchCards } from "../search/index.ts";
 import { CardStore, sessionStatePath } from "../store/index.ts";
 import type { CanonicalEvent } from "./normalize.ts";
@@ -23,8 +24,9 @@ function saveState(home: string, state: InjectedState): void {
 export function handlePromptSubmit(
   event: Extract<CanonicalEvent, { type: "prompt-submit" }>,
   home?: string,
+  runtimeHome?: string,
 ): HookOutput {
-  const store = new CardStore(home);
+  const store = new CardStore(home, event.cwd);
   try {
     if (!event.prompt.trim()) return { continue: true, suppressOutput: true };
     const state = loadState(store.home);
@@ -35,6 +37,13 @@ export function handlePromptSubmit(
     });
     state[event.sessionId] = [...exclude, ...hits.map((h) => h.slug)];
     saveState(store.home, state);
+    recordRuntimeEvent(runtimeHome, {
+      event: "cards_retrieved",
+      hook: "prompt-submit",
+      session_id: event.sessionId,
+      project: event.cwd,
+      card_ids: hits.map((hit) => hit.slug),
+    });
     if (!context) return { continue: true, suppressOutput: true };
     return contextOutput(context, "UserPromptSubmit");
   } finally {

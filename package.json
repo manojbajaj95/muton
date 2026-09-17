@@ -12,11 +12,12 @@
     "skills"
   ],
   "scripts": {
-    "build": "bun build ./src/cli/index.ts --target node --outfile ./dist/cli.js && node -e \"const fs=require('fs'); const p='dist/cli.js'; const b=fs.readFileSync(p,'utf8'); if(!b.startsWith('#!')) fs.writeFileSync(p,'#!/usr/bin/env node\\n'+b); fs.chmodSync(p,0o755);\"",
+    "build": "bun build ./src/cli/index.ts --target node --outfile ./dist/cli.js && node scripts/fix-node-shebang.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "bun test",
+    "test:package": "bash scripts/test-package-node-only.sh",
     "prepublishOnly": "bun run build"
   },
   "engines": {
