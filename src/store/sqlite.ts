@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import type { Card } from "../cards/index.ts";
-import { toFtsQuery } from "../search/bm25.ts";
+import { toFtsQuery } from "../retrieval/query.ts";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS cards (

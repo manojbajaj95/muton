@@ -20,7 +20,9 @@ Rules:
 - Prefer concrete state: APIs, encodings, workarounds, environment facts, non-obvious constraints.
 - Treat user and system instructions as supplied context, not discoveries. A transcript containing only instructions must return [].
 - Every proposal must cite existing record ids and include at least one assistant or tool record that supports the fact.
-- Skip: one-off plans, full transcripts, secrets/credentials, generic advice, repeated task instructions, and ephemeral debugging chatter.
+- A card must remain useful after the current ticket without needing its surrounding conversation. Prefer facts that are non-obvious or costly to rediscover.
+- Skip: one-off plans, full transcripts, secrets/credentials, generic advice, repeated task instructions, ephemeral debugging chatter, commit hashes, and whether work was pushed, passed, or verified in this session.
+- If durable behavior and ticket-specific status appear together, keep only the durable behavior.
 - The store merges near-duplicates. Do not list or reuse existing hive titles. Do NOT delete cards. Do NOT invent facts not supported by the transcript.
 - Prefer fewer high-value cards (0–5). Return [] if nothing durable was learned.
 - title, use_when, body, and evidence are mandatory. Unknown fields are invalid.`;

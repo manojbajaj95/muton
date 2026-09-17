@@ -13,6 +13,9 @@ Nested by concern under `src/`. Outer modules depend on inner; never reverse:
 
 `cli` → `hooks` / `mcp` / `hosts` / `reflection` / `search` → `store` → `cards`
 
+Pure retrieval heuristics and their tuning surface live in `retrieval/`; `search/` handles Card
+search orchestration and context formatting.
+
 Do not add a catch-all `utils.ts`. Paths live in `store/`; host completion lives in `reflection/complete/`.
 
 ## Cards
