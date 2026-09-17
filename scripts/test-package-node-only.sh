@@ -10,6 +10,7 @@ docker run --rm \
   -v "$repo/$package:/tmp/muton.tgz:ro" \
   node:22-bookworm-slim \
   sh -eu -c '
+    export MUTON_NO_AUTO_UPDATE=1
     npm install -g /tmp/muton.tgz >/dev/null
     mkdir -p /tmp/project && cd /tmp/project
     muton install --target claude >/dev/null

@@ -1,8 +1,4 @@
-import { execSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { basename } from "node:path";
-import { recordRuntimeEvent } from "../reflection/jobs.ts";
-import { searchCards } from "../search/index.ts";
 import { CardStore, sessionStatePath } from "../store/index.ts";
 import type { CanonicalEvent } from "./normalize.ts";
 
@@ -22,36 +18,6 @@ function saveState(home: string, state: InjectedState): void {
   writeFileSync(sessionStatePath(home), JSON.stringify(state), "utf8");
 }
 
-/** Last path segment of a git remote, without .git. */
-export function repoNameFromRemote(remote: string): string {
-  return (
-    remote
-      .trim()
-      .replace(/\.git$/i, "")
-      .split(/[/:]/)
-      .filter(Boolean)
-      .at(-1) ?? ""
-  );
-}
-
-export function buildRepoQuery(cwd?: string): string {
-  if (!cwd) return "";
-  const names = new Set<string>([basename(cwd)]);
-  try {
-    const remote = execSync("git remote get-url origin", {
-      cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-      timeout: 1_000,
-    }).trim();
-    const repo = repoNameFromRemote(remote);
-    if (repo) names.add(repo);
-  } catch {
-    // no git
-  }
-  return [...names].join(" ");
-}
-
 export type HookOutput = {
   /** Cursor */
   additional_context?: string;
@@ -67,24 +33,13 @@ export type HookOutput = {
 export function handleSessionStart(
   event: Extract<CanonicalEvent, { type: "session-start" }>,
   home?: string,
-  runtimeHome?: string,
 ): HookOutput {
   const store = new CardStore(home, event.cwd);
   try {
-    const query = buildRepoQuery(event.cwd);
-    const { hits, context } = searchCards(store, query, { k: 5 });
     const state = loadState(store.home);
-    state[event.sessionId] = hits.map((h) => h.slug);
+    state[event.sessionId] = [];
     saveState(store.home, state);
-    recordRuntimeEvent(runtimeHome, {
-      event: "cards_retrieved",
-      hook: "session-start",
-      session_id: event.sessionId,
-      project: event.cwd,
-      card_ids: hits.map((hit) => hit.slug),
-    });
-    if (!context) return { continue: true, suppressOutput: true };
-    return contextOutput(context, "SessionStart");
+    return { continue: true, suppressOutput: true };
   } finally {
     store.close();
   }

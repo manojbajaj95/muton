@@ -1,9 +1,25 @@
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { installClaude } from "./claude.ts";
 import { installCodex } from "./codex.ts";
 import { installCursor } from "./cursor.ts";
 import { installPi } from "./pi.ts";
 
 export type HostTarget = "cursor" | "claude" | "codex" | "pi";
+
+const HOSTS: HostTarget[] = ["cursor", "claude", "codex", "pi"];
+const HOST_HOMES: Record<HostTarget, string> = {
+  cursor: ".cursor",
+  claude: ".claude",
+  codex: ".codex",
+  pi: ".pi",
+};
+
+/** Find hosts that have initialized their standard home directory. */
+export function detectHosts(home = homedir()): HostTarget[] {
+  return HOSTS.filter((host) => existsSync(join(home, HOST_HOMES[host])));
+}
 
 export function installHosts(targets: HostTarget[]): Record<string, string> {
   const results: Record<string, string> = {};
@@ -31,13 +47,13 @@ export function parseTargets(raw: string): HostTarget[] {
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
-  const allowed = new Set<HostTarget>(["cursor", "claude", "codex", "pi"]);
+  const allowed = new Set(HOSTS);
   const out: HostTarget[] = [];
   for (const p of parts) {
     if (!allowed.has(p as HostTarget)) {
       throw new Error(`Unknown target: ${p}. Use cursor,claude,codex,pi`);
     }
-    out.push(p as HostTarget);
+    if (!out.includes(p as HostTarget)) out.push(p as HostTarget);
   }
   if (out.length === 0) throw new Error("Provide at least one --target");
   return out;

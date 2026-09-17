@@ -21,7 +21,7 @@ export function runHook(
   const event = normalizeHookInput(eventName, raw, opts?.host);
   switch (event.type) {
     case "session-start":
-      return handleSessionStart(event, opts?.home, opts?.runtimeHome);
+      return handleSessionStart(event, opts?.home);
     case "prompt-submit":
       return handlePromptSubmit(event, opts?.home, opts?.runtimeHome);
     case "session-end":

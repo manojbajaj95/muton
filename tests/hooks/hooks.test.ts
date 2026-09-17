@@ -2,9 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { formatHookOutput } from "../../src/cli/commands/hook.ts";
 import { normalizeHookInput, runHook } from "../../src/hooks/index.ts";
-import { repoNameFromRemote } from "../../src/hooks/session-start.ts";
-import { CardStore } from "../../src/store/index.ts";
+import { contextOutput } from "../../src/hooks/session-start.ts";
+import { CardStore, sessionStatePath } from "../../src/store/index.ts";
 
 describe("hooks", () => {
   let home = "";
@@ -24,9 +25,8 @@ describe("hooks", () => {
     if (event.type === "session-start") expect(event.cwd).toBe("/tmp/proj");
   });
 
-  test("session-start injects project-local context", () => {
+  test("session-start initializes state without injecting Cards", () => {
     home = mkdtempSync(join(tmpdir(), "muton-hook-"));
-    const runtimeHome = join(home, "global-runtime");
     const store = new CardStore(home);
     store.writeNew({
       title: "muton-hook encoding",
@@ -37,11 +37,25 @@ describe("hooks", () => {
     const out = runHook(
       "session-start",
       { session_id: "abc", workspace_roots: [join(home, "muton-hook-workspace")] },
-      { home, runtimeHome },
+      { home },
     );
-    expect(out.additional_context || out.hookSpecificOutput?.additionalContext).toBeTruthy();
-    const log = readFileSync(join(runtimeHome, "runtime", "logs", "reflection.jsonl"), "utf8");
-    expect(log).toContain('"card_ids":["muton-hook-encoding"]');
+    expect(out).toEqual({ continue: true, suppressOutput: true });
+    expect(JSON.parse(readFileSync(sessionStatePath(home), "utf8"))).toEqual({ abc: [] });
+  });
+
+  test("formats additional context for each host schema", () => {
+    const output = contextOutput("CARD", "UserPromptSubmit");
+
+    expect(formatHookOutput(output, "codex")).toEqual({
+      hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: "CARD" },
+      continue: true,
+      suppressOutput: true,
+    });
+    expect(formatHookOutput(output, "cursor")).toEqual({
+      additional_context: "CARD",
+      continue: true,
+      suppressOutput: true,
+    });
   });
 
   test("reflection subprocess marker disables every hook", () => {
@@ -53,10 +67,5 @@ describe("hooks", () => {
       { host: "pi", home },
     );
     expect(out).toEqual({ continue: true, suppressOutput: true });
-  });
-
-  test("repoNameFromRemote uses the last path segment", () => {
-    expect(repoNameFromRemote("https://github.com/acme/muton.git")).toBe("muton");
-    expect(repoNameFromRemote("git@github.com:acme/muton.git")).toBe("muton");
   });
 });

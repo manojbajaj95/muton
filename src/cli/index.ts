@@ -5,23 +5,25 @@ import { cmdMcp } from "./commands/mcp.ts";
 import { cmdPropose } from "./commands/propose.ts";
 import { cmdReflect } from "./commands/reflect.ts";
 import { cmdSearch } from "./commands/search.ts";
+import { cmdUpdate, maybeAutoUpdate, VERSION } from "./commands/update.ts";
 import { cmdView } from "./commands/view.ts";
 
 const HELP = `muton — shared hive memory for coding agents
 
 Usage:
-  muton install --target cursor,claude,codex,pi
+  muton install
   muton search [--json] <query>
   muton view [--port <number>]
   muton propose --title <t> --use-when <u> --body <b>
   muton reflect --transcript <path> [--cwd <dir>] [--session-id <id>] [--backend <name>] [--model <id>]
-  muton reflect wait --session-id <id> [--timeout-ms <ms>] [--transcript-hash <hash>]
-  muton hook <session-start|prompt-submit|session-end> [--host <name>]
+  muton update
+  muton version | -v | --version
   muton mcp
 `;
 
 async function main(): Promise<void> {
   const [, , cmd, ...rest] = process.argv;
+  if (cmd !== "update") maybeAutoUpdate();
   switch (cmd) {
     case "install":
       cmdInstall(rest);
@@ -43,6 +45,14 @@ async function main(): Promise<void> {
       break;
     case "mcp":
       await cmdMcp();
+      break;
+    case "update":
+      cmdUpdate();
+      break;
+    case "version":
+    case "--version":
+    case "-v":
+      console.log(VERSION);
       break;
     case "help":
     case "--help":

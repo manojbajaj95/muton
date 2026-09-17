@@ -53,6 +53,22 @@ export async function cmdHook(args: string[]): Promise<void> {
   if (event === "session-end") {
     process.stdout.write("{}\n");
   } else {
-    process.stdout.write(`${JSON.stringify(out)}\n`);
+    process.stdout.write(`${JSON.stringify(formatHookOutput(out, host))}\n`);
   }
+}
+
+/** Remove response fields that the target host rejects as unknown. */
+export function formatHookOutput(
+  output: HookOutput,
+  host?: "claude" | "cursor" | "codex" | "pi",
+): HookOutput {
+  if (host === "cursor") {
+    const { hookSpecificOutput: _, ...cursorOutput } = output;
+    return cursorOutput;
+  }
+  if (host === "claude" || host === "codex") {
+    const { additional_context: _, ...hookOutput } = output;
+    return hookOutput;
+  }
+  return output;
 }

@@ -28,17 +28,28 @@ npm install -g mutoncli
 
 The command is still `muton`.
 
-Install hooks for your harness:
+Check or update the installed CLI:
 
 ```bash
-muton install --target cursor,claude,codex,pi
+muton --version
+muton update
 ```
 
-Pass only the hosts you use. Cards are stored in `<project>/.agents/muton/cards/`. Runtime jobs, logs, and sanitized transcript archives are stored in `~/.agents/muton/`.
+Installed packages make one silent, best-effort update attempt on their first command invocation. Source checkouts stay on the local build; update them with Git and rebuild.
+
+Set up Muton:
+
+```bash
+muton install
+```
+
+Muton detects Cursor, Claude Code, Codex, and Pi from their standard home directories and installs the hooks each one needs. To configure a host that has not created its home directory yet, use `muton install --target codex` (or a comma-separated list).
+
+Cards are stored in `<project>/.agents/muton/cards/`. Runtime jobs, logs, and sanitized transcript archives are stored in `~/.agents/muton/`.
 
 ## How it works
 
-1. At session start and on each prompt, Muton searches Cards and injects matches as hidden context.
+1. On each prompt, Muton searches Cards and injects matches as hidden context.
 2. At session end, Muton extracts and sanitizes the transcript, archives that immutable snapshot, and starts a reflection job in the background.
 3. An isolated host CLI or direct model turns the sanitized transcript into validated proposals. Muton commits those proposals to the current project's Cards.
 
@@ -49,12 +60,6 @@ For manual reflection, `--backend` selects the extractor and `--model` optionall
 ```bash
 muton reflect --transcript session.jsonl --backend codex
 muton reflect --transcript session.jsonl --backend openai --model <model-id>
-```
-
-Benchmark runners can wait for dependent learning before starting another session:
-
-```bash
-muton reflect wait --session-id <id> --timeout-ms 120000
 ```
 
 See [Architecture](docs/architecture.md) for the storage and isolation boundaries.
