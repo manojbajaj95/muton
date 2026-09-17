@@ -61,6 +61,16 @@ See [Architecture](docs/architecture.md) for the storage and isolation boundarie
 
 If hooks are not available, use MCP (`muton mcp`) or the skill and CLI (`muton search`, `muton propose`).
 
+Browse the current project's Cards in a local, read-only viewer:
+
+```bash
+muton view
+# or choose a port
+muton view --port 8080
+```
+
+The viewer is available only on `127.0.0.1` and updates when the page is refreshed.
+
 ## Develop
 
 Read the [CONTRIBUTING](CONTRIBUTING.md) guidelines before you change the code.

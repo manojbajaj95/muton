@@ -15,4 +15,25 @@ docker run --rm \
     muton install --target claude >/dev/null
     muton propose --title "Packaged CLI" --use-when "testing npm artifact" --body "The Node bundle executes without Bun." >/dev/null
     muton search "Packaged CLI" | grep -q "Packaged CLI"
+    muton view --port 4377 >/tmp/muton-view.log 2>&1 &
+    viewer_pid=$!
+    trap '\''kill "$viewer_pid" 2>/dev/null || true'\'' EXIT
+    node -e '\''
+      const url = "http://127.0.0.1:4377";
+      let lastError;
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        try {
+          const response = await fetch(url);
+          const html = await response.text();
+          if (response.ok && html.includes("Packaged CLI")) process.exit(0);
+        } catch (error) {
+          lastError = error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      throw lastError ?? new Error("Packaged viewer did not return its Card");
+    '\''
+    kill "$viewer_pid"
+    wait "$viewer_pid" 2>/dev/null || true
+    trap - EXIT
   '
