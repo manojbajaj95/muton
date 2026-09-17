@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/manojbajaj95/muton/compare/v0.3.0...v0.4.0) (2026-09-17)
+
+
+### Features
+
+* add local Card viewer ([ea337bd](https://github.com/manojbajaj95/muton/commit/ea337bd8e350c4d244f8b371a2ec99484a36fc7e))
+
 ## [0.3.0](https://github.com/manojbajaj95/muton/compare/v0.2.1...v0.3.0) (2026-09-17)
 
 
