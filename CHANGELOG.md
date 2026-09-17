@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/manojbajaj95/muton/compare/v0.4.0...v0.5.0) (2026-09-17)
+
+
+### Features
+
+* improve CLI setup and card retrieval ([fa76a58](https://github.com/manojbajaj95/muton/commit/fa76a58ec146bf02db4d490b1a17c5366bf6a2d0))
+* isolate and improve card retrieval ([0149987](https://github.com/manojbajaj95/muton/commit/01499878df13b08ec57afa03e8079ede04e87928))
+
 ## [0.4.0](https://github.com/manojbajaj95/muton/compare/v0.3.0...v0.4.0) (2026-09-17)
 
 
