@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { cmdReplace, cmdRm, cmdShow } from "./commands/cards.ts";
 import { cmdHook } from "./commands/hook.ts";
 import { cmdInstall } from "./commands/install.ts";
 import { cmdMcp } from "./commands/mcp.ts";
@@ -14,7 +15,10 @@ Usage:
   muton install
   muton search [--json] <query>
   muton view [--port <number>]
-  muton propose --title <t> --use-when <u> --body <b>
+  muton propose [--json] --title <t> --use-when <u> --body <b>
+  muton show [--json] <slug>
+  muton replace [--json] <slug> [--title <t>] [--use-when <u>] [--body <b>]
+  muton rm [--json] <slug>
   muton reflect --transcript <path> [--cwd <dir>] [--session-id <id>] [--backend <name>] [--model <id>]
   muton update
   muton version | -v | --version
@@ -36,6 +40,15 @@ async function main(): Promise<void> {
       break;
     case "propose":
       cmdPropose(rest);
+      break;
+    case "show":
+      cmdShow(rest);
+      break;
+    case "replace":
+      cmdReplace(rest);
+      break;
+    case "rm":
+      cmdRm(rest);
       break;
     case "reflect":
       await cmdReflect(rest);

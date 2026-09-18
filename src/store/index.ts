@@ -28,6 +28,13 @@ export type ProposeInput = {
   sources?: CardSource[];
 };
 
+export type UpdateInput = {
+  title?: string;
+  use_when?: string;
+  body?: string;
+  sources?: CardSource[];
+};
+
 export type UpsertResult = { card: Card; action: "created" | "equivalent" | "merged" };
 
 export class CardStore {
@@ -89,16 +96,17 @@ export class CardStore {
     }
   }
 
-  /** Allocate a unique slug from title. */
-  allocateSlug(title: string): string {
+  /** Allocate a unique slug from title. `except` keeps the current card's slug available when renaming. */
+  allocateSlug(title: string, except?: string): string {
     const base = slugify(title);
     let slug = base;
     let n = 2;
-    while (this.read(slug)) {
+    while (true) {
+      const hit = this.read(slug);
+      if (!hit || hit.slug === except) return slug;
       slug = `${base}-${n}`;
       n += 1;
     }
-    return slug;
   }
 
   /**
@@ -121,16 +129,59 @@ export class CardStore {
     });
   }
 
-  update(slug: string, input: ProposeInput, now = new Date()): Card {
+  update(slug: string, input: UpdateInput, now = new Date()): Card {
     return this.withWriteLock(() => {
       const existing = this.read(slug);
       if (!existing) throw new Error(`Card not found: ${slug}`);
-      return this.persist({
-        ...existing,
-        ...normalizeInput(input),
-        sources: input.sources ? mergeSources([], input.sources) : existing.sources,
-        updated_at: now.toISOString(),
-      });
+      if (
+        input.title === undefined &&
+        input.use_when === undefined &&
+        input.body === undefined &&
+        input.sources === undefined
+      ) {
+        throw new Error("Update requires at least one field");
+      }
+      const next: ProposeInput = {
+        title: input.title ?? existing.title,
+        use_when: input.use_when ?? existing.use_when,
+        body: input.body ?? existing.body,
+        sources: input.sources,
+      };
+      const normalized = normalizeInput(next);
+      const nextSlug = input.title !== undefined ? this.allocateSlug(normalized.title, slug) : slug;
+      return this.persist(
+        {
+          ...existing,
+          slug: nextSlug,
+          title: normalized.title,
+          use_when: normalized.use_when,
+          body: normalized.body,
+          sources: input.sources ? normalized.sources : existing.sources,
+          updated_at: now.toISOString(),
+        },
+        slug,
+      );
+    });
+  }
+
+  delete(slug: string): void {
+    this.withWriteLock(() => {
+      const path = join(cardsDir(this.home), `${slug}.md`);
+      if (!this.read(slug)) throw new Error(`Card not found: ${slug}`);
+      const index = this.getIndex();
+      index.beginWrite();
+      try {
+        index.remove(slug);
+        index.commit();
+      } catch (error) {
+        try {
+          index.rollback();
+        } catch {
+          // The transaction may already be closed.
+        }
+        throw error;
+      }
+      rmSync(path, { force: true });
     });
   }
 
@@ -182,17 +233,18 @@ export class CardStore {
     return best ? (this.read(best.slug) ?? undefined) : undefined;
   }
 
-  private persist(card: Card): Card {
-    const path = join(cardsDir(this.home), `${card.slug}.md`);
+  private persist(card: Card, previousSlug?: string): Card {
+    const dir = cardsDir(this.home);
+    const path = join(dir, `${card.slug}.md`);
     const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`;
     writeFileSync(tmp, serializeCard(card), { encoding: "utf8", mode: 0o600 });
     const index = this.getIndex();
     index.beginWrite();
     try {
+      if (previousSlug && previousSlug !== card.slug) index.remove(previousSlug);
       index.upsert(card);
       renameSync(tmp, path);
       index.commit();
-      return card;
     } catch (error) {
       try {
         index.rollback();
@@ -202,6 +254,10 @@ export class CardStore {
       rmSync(tmp, { force: true });
       throw error;
     }
+    if (previousSlug && previousSlug !== card.slug) {
+      rmSync(join(dir, `${previousSlug}.md`), { force: true });
+    }
+    return card;
   }
 
   private withWriteLock<T>(fn: () => T): T {
@@ -246,10 +302,16 @@ export class CardStore {
 }
 
 function normalizeInput(input: ProposeInput): ProposeInput {
+  const title = input.title.trim();
+  const use_when = input.use_when.trim();
+  const body = input.body.trim();
+  if (!title || !use_when || !body) {
+    throw new Error("Card title, use_when, and body must not be empty");
+  }
   return {
-    title: input.title.trim(),
-    use_when: input.use_when.trim(),
-    body: input.body.trim(),
+    title,
+    use_when,
+    body,
     sources: mergeSources([], input.sources ?? []),
   };
 }

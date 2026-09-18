@@ -64,7 +64,16 @@ muton reflect --transcript session.jsonl --backend openai --model <model-id>
 
 See [Architecture](docs/architecture.md) for the storage and isolation boundaries.
 
-If hooks are not available, use MCP (`muton mcp`) or the skill and CLI (`muton search`, `muton propose`).
+If hooks are not available, use MCP (`muton mcp`) or the skill and CLI. Card CRUD uses the same verbs on both surfaces:
+
+```bash
+muton propose --title <t> --use-when <u> --body <b>
+muton show <slug>
+muton replace <slug> --body <b>
+muton rm <slug>
+```
+
+Add `--json` on the CLI to get the same objects MCP tools return. Prefer `search` and `propose` for normal agent work; use `show`, `replace`, and `rm` when you need to inspect or correct a known Card.
 
 Browse the current project's Cards in a local, read-only viewer:
 

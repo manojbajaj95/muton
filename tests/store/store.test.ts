@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { CardStore } from "../../src/store/index.ts";
+import { CardIndex } from "../../src/store/sqlite.ts";
 
 describe("CardStore", () => {
   let home: string;
@@ -151,6 +152,87 @@ describe("CardStore", () => {
     expect(store.cardCount()).toBe(2);
   });
 
+  test("update patches named fields and delete removes file plus index", () => {
+    home = mkdtempSync(join(tmpdir(), "muton-store-"));
+    store = new CardStore(home);
+    const card = store.writeNew({
+      title: "Patchable Card",
+      use_when: "Before patch",
+      body: "Original body.",
+    });
+    const updated = store.update(card.slug, { body: "Corrected body." });
+    expect(updated.slug).toBe(card.slug);
+    expect(updated.title).toBe("Patchable Card");
+    expect(updated.use_when).toBe("Before patch");
+    expect(updated.body).toBe("Corrected body.");
+    expect(() => store.update(card.slug, {})).toThrow("Update requires at least one field");
+
+    store.delete(card.slug);
+    expect(store.read(card.slug)).toBeNull();
+    expect(store.cardCount()).toBe(0);
+    expect(() => store.delete(card.slug)).toThrow(`Card not found: ${card.slug}`);
+  });
+
+  test("update renames the slug when the title changes", () => {
+    home = mkdtempSync(join(tmpdir(), "muton-store-"));
+    store = new CardStore(home);
+    const card = store.writeNew({
+      title: "Old Title",
+      use_when: "Rename test",
+      body: "Body stays.",
+    });
+    const renamed = store.update(card.slug, { title: "New Title" });
+    expect(renamed.slug).toBe("new-title");
+    expect(renamed.title).toBe("New Title");
+    expect(store.read("old-title")).toBeNull();
+    expect(store.read("new-title")?.body).toBe("Body stays.");
+    expect(store.cardCount()).toBe(1);
+  });
+
+  test("update rejects empty required fields", () => {
+    home = mkdtempSync(join(tmpdir(), "muton-store-"));
+    store = new CardStore(home);
+    const card = store.writeNew({
+      title: "Patchable Card",
+      use_when: "Before patch",
+      body: "Original body.",
+    });
+    expect(() => store.update(card.slug, { title: "  " })).toThrow(/must not be empty/);
+    expect(() => store.update(card.slug, { use_when: "" })).toThrow(/must not be empty/);
+    expect(() => store.update(card.slug, { body: "" })).toThrow(/must not be empty/);
+    expect(store.read(card.slug)?.body).toBe("Original body.");
+  });
+
+  test("delete keeps the file if the index commit fails", () => {
+    home = mkdtempSync(join(tmpdir(), "muton-store-"));
+    store = new CardStore(home);
+    const card = store.writeNew({
+      title: "Keep Me",
+      use_when: "Commit failure",
+      body: "Must survive a failed delete.",
+    });
+    withFailingCommit(() => {
+      expect(() => store.delete(card.slug)).toThrow("commit failed");
+    });
+    expect(store.read(card.slug)?.body).toBe("Must survive a failed delete.");
+    expect(store.cardCount()).toBe(1);
+  });
+
+  test("rename keeps the old file if the index commit fails", () => {
+    home = mkdtempSync(join(tmpdir(), "muton-store-"));
+    store = new CardStore(home);
+    const card = store.writeNew({
+      title: "Old Title",
+      use_when: "Rename failure",
+      body: "Must survive a failed rename.",
+    });
+    withFailingCommit(() => {
+      expect(() => store.update(card.slug, { title: "New Title" })).toThrow("commit failed");
+    });
+    expect(store.read("old-title")?.body).toBe("Must survive a failed rename.");
+    expect(store.cardCount()).toBe(1);
+  });
+
   test("concurrent writers keep files and both index tables consistent", async () => {
     home = mkdtempSync(join(tmpdir(), "muton-store-concurrent-"));
     const worker = join(home, "writer.ts");
@@ -198,6 +280,18 @@ try {
     }
   });
 });
+
+function withFailingCommit(fn: () => void): void {
+  const original = CardIndex.prototype.commit;
+  CardIndex.prototype.commit = function failCommit() {
+    throw new Error("commit failed");
+  };
+  try {
+    fn();
+  } finally {
+    CardIndex.prototype.commit = original;
+  }
+}
 
 function runWriter(worker: string, home: string, id: string): Promise<void> {
   return new Promise((resolvePromise, reject) => {

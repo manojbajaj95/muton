@@ -15,8 +15,9 @@ description: >
 Muton is a shared hive of durable **Cards**. Each session starts empty. Cards
 stop the next session from repeating the same failure.
 
-The agent interface is the **CLI**. Use `muton search` and `muton propose`. If
-`muton` is not on PATH, skip hive calls. Do not invent another store.
+The agent interface is the **CLI**. Prefer `muton search` and `muton propose`.
+Use `show`, `replace`, and `rm` only when you must inspect or correct a known
+Card. If `muton` is not on PATH, skip hive calls. Do not invent another store.
 
 When this skill is supplied to a persistent multi-step benchmark system, this
 is a **mandatory protocol**, not a suggestion: before doing any other work in
@@ -57,17 +58,36 @@ second card for the same fact.
 muton propose --title "Stripe webhook raw body" --use-when "Verifying Stripe webhook signatures" --body "Pass the raw request Buffer to stripe.webhooks.constructEvent. JSON.parse first invalidates the signature."
 ```
 
-The store updates a near-duplicate Card in place. Write a clear title for the
-fact as it is now. Do not copy an old title from search hits.
+The store merges near-duplicates in place. Write a clear title for the fact as
+it is now. Do not copy an old title from search hits.
 
 ### Card fields
 
-- **title** — short distinctive name (also becomes the filename slug)
+- **title** — short distinctive name; the filename slug follows the title
 - **use_when** — situation or cue that should retrieve this card
 - **body** — the fact itself: concrete and reusable
 
 Skip the propose if the fact is a one-off plan, a transcript, generic advice,
 or something the task already states.
+
+## Show, replace, and rm
+
+Same verbs exist on MCP. CLI `--json` returns the same objects as MCP tools.
+
+```bash
+muton show --json <slug>
+muton replace --json <slug> [--title <t>] [--use-when <u>] [--body <b>]
+muton rm --json <slug>
+```
+
+- **show** — read one Card by slug
+- **replace** — overwrite named fields on that slug; omit fields you keep.
+  Changing the title also renames the slug to match; use the returned slug
+- **rm** — delete that Card. No prompt. Use only when the Card is wrong or
+  obsolete and the user wants it gone
+
+Prefer `propose` for new facts. Prefer `replace` when a known slug needs a
+correction. Do not delete Cards during ordinary work.
 
 ## Stay silent
 
@@ -79,3 +99,4 @@ Session-end reflection is also silent. Use the fact. Do not narrate the hive.
 - Store secrets, credentials, API keys, one-off plans, or full transcripts
 - Create topics or notebooks — only durable Cards
 - Call MCP for hive memory — this skill uses the CLI
+- Delete or replace Cards unless you are correcting a known bad Card

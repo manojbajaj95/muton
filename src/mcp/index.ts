@@ -1,1 +1,7 @@
-export { startMcpServer } from "./tools.ts";
+export {
+  proposeCard,
+  replaceCard,
+  rmCard,
+  showCard,
+  startMcpServer,
+} from "./tools.ts";
