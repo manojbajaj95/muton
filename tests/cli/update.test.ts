@@ -30,5 +30,7 @@ describe("update command", () => {
 
   test("recognizes this repository build as local", () => {
     expect(isLocalCheckout(join(process.cwd(), "dist", "cli.js"))).toBe(true);
+    expect(isLocalCheckout(join(process.cwd(), "scripts", "fix-node-shebang.mjs"))).toBe(true);
+    expect(isLocalCheckout("/usr/local/lib/node_modules/mutoncli/dist/cli.js")).toBe(false);
   });
 });

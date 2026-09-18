@@ -45,7 +45,8 @@ export function autoUpdateNeeded(lastVersion: string | undefined, local: boolean
 export function isLocalCheckout(entry = process.argv[1]): boolean {
   if (!entry) return false;
   try {
-    return existsSync(join(dirname(dirname(realpathSync(entry))), ".git"));
+    const resolved = existsSync(entry) ? realpathSync(entry) : entry;
+    return existsSync(join(dirname(dirname(resolved)), ".git"));
   } catch {
     return false;
   }
