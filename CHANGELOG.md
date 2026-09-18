@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/manojbajaj95/muton/compare/v0.5.0...v0.6.0) (2026-09-18)
+
+
+### Features
+
+* add show, replace, and rm for Cards ([0409bae](https://github.com/manojbajaj95/muton/commit/0409baece91a7eb34b75ec6af23dfce2d3d8781b))
+
+
+### Bug Fixes
+
+* detect local checkout without a built CLI ([bfc3b0a](https://github.com/manojbajaj95/muton/commit/bfc3b0a9551dc16744b42dbf3b4331195b1c516c))
+
 ## [0.5.0](https://github.com/manojbajaj95/muton/compare/v0.4.0...v0.5.0) (2026-09-17)
 
 
